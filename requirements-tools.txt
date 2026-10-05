@@ -1,0 +1,5 @@
+# Installer dans le runner jetable, pas nécessaire pour la démonstration.
+ruff>=0.11,<1
+bandit>=1.8,<2
+pytest>=8,<10
+pytest-cov>=6,<8

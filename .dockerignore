@@ -1,0 +1,7 @@
+.env
+.venv
+.git
+runs
+evidence
+__pycache__
+**/__pycache__

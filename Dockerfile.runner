@@ -1,0 +1,15 @@
+# Laboratoire : figer les versions et digests après votre recette.
+FROM zricethezav/gitleaks:latest AS gitleaks
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks
+WORKDIR /opt/reviewer
+COPY pyproject.toml requirements-tools.txt ./
+COPY review ./review
+COPY scripts/collect_evidence.py ./scripts/collect_evidence.py
+RUN pip install --no-cache-dir . -r requirements-tools.txt
+# Installer ici les dépendances de VOTRE application, après examen de leur liste.
+# Exemple : COPY requirements-app.txt ./
+#           RUN pip install --no-cache-dir -r requirements-app.txt
+ENV PYTHONDONTWRITEBYTECODE=1
+CMD ["python", "scripts/collect_evidence.py", "--help"]
