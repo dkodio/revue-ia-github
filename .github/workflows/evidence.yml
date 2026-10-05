@@ -1,0 +1,70 @@
+name: Preuves de la Pull Request
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Ce job n'a aucun jeton OpenProject ni accès à Ollama.
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  collect-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      COVERAGE_SOURCE: ${{ vars.REVIEW_COVERAGE_SOURCE || 'example_app' }}
+      SCAN_PATH: ${{ vars.REVIEW_SCAN_PATH || 'example_app' }}
+    steps:
+      - name: Lire le collecteur approuvé sur la branche cible
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Lire le commit exact de la Pull Request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: target
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Préparer les outils approuvés
+        run: |
+          python -m pip install ./trusted
+          docker build -f trusted/Dockerfile.runner -t revue-ia-runner:local trusted
+      - name: Exécuter les analyseurs dans le conteneur jetable
+        run: |
+          test "$(git -C target rev-parse HEAD)" = "$PR_HEAD_SHA"
+          mkdir -p runner-output
+          docker run --rm --network=none --read-only \
+            --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=4g --cpus=2 \
+            --tmpfs /tmp:rw,nosuid,size=2g \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/target,dst=/source,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/runner-output,dst=/out" \
+            --env "COVERAGE_SOURCE=$COVERAGE_SOURCE" \
+            --env "SCAN_PATH=$SCAN_PATH" \
+            revue-ia-runner:local sh -c \
+            'cp -R /source /tmp/repo && python scripts/collect_evidence.py --repo /tmp/repo --out /out/evidence.json --run-tests --coverage-source "$COVERAGE_SOURCE" --scan-path "$SCAN_PATH"'
+      - name: Valider le format et le commit des preuves
+        run: |
+          python -m review.ci normalize --input runner-output/evidence.json \
+            --head "$PR_HEAD_SHA" --output artifacts/evidence.json
+      - name: Conserver les preuves pour les sept agents
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-evidence-${{ github.event.pull_request.head.sha }}
+          path: artifacts/evidence.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Appliquer les critères de contrôle
+        run: |
+          python -m review.ci gate --input artifacts/evidence.json --head "$PR_HEAD_SHA"
