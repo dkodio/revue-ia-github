@@ -1,0 +1,119 @@
+{
+  "schema_version": 2,
+  "forge": "github",
+  "run_id": "e6250f15787c48e9883788e6de3c890b",
+  "created_at": "2026-10-05T01:18:03.662835+00:00",
+  "model": "simulation-sans-modele",
+  "demo": true,
+  "ticket_id": 42,
+  "ticket_updated_at": "2026-10-04T00:00:00Z",
+  "repository": "demo/calculatrice",
+  "pr": 1,
+  "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "base_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "input_digest": "403a70c7f840b48adc727976cc8c5884350eac0f6e4c24c4a83ed77ac2d5fa89",
+  "results": [
+    {
+      "agent": 1,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 1. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [
+        {
+          "id": "CA-1",
+          "text": "Le diviseur zéro déclenche ValueError",
+          "status": "unknown",
+          "evidence": "Simulation : pas de preuve d'exécution"
+        }
+      ],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline."
+      ]
+    },
+    {
+      "agent": 2,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 2. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline."
+      ]
+    },
+    {
+      "agent": 3,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 3. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline.",
+        "ruff non exécuté ou en erreur."
+      ]
+    },
+    {
+      "agent": 4,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 4. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [
+        {
+          "id": "CA-1",
+          "text": "Le diviseur zéro déclenche ValueError",
+          "status": "unknown",
+          "evidence": "Simulation : pas de preuve d'exécution"
+        }
+      ],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline."
+      ]
+    },
+    {
+      "agent": 5,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 5. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline."
+      ]
+    },
+    {
+      "agent": 6,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 6. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline.",
+        "bandit non exécuté ou en erreur.",
+        "gitleaks non exécuté ou en erreur."
+      ]
+    },
+    {
+      "agent": 7,
+      "status": "complete",
+      "summary": "Démonstration de l'agent 7. Aucun modèle exécuté.",
+      "findings": [],
+      "criteria": [],
+      "limitations": [
+        "Sortie fictive destinée à tester le fonctionnement du pipeline."
+      ]
+    }
+  ],
+  "decision": "revue_humaine_requise",
+  "reasons": [
+    "Démonstration simulée : aucune revue réelle.",
+    "Critères d'acceptation absents ou partiellement inconnus.",
+    "Preuve ruff absente ou inexploitable.",
+    "Preuve pytest absente ou inexploitable.",
+    "Preuve bandit absente ou inexploitable.",
+    "Preuve gitleaks absente ou inexploitable.",
+    "Couverture inconnue.",
+    "Aucun test effectivement exécuté."
+  ],
+  "tools": {},
+  "coverage_percent": null,
+  "warnings": [],
+  "human_approval_required": true
+}
