@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from uuid import uuid4
 from review.models import Context, Evidence, ToolResult, AgentResult, Criterion, Finding
 from review.llm import DemoModel, Ollama
 from review.orchestrator import run
@@ -206,8 +207,9 @@ class ModelTests(unittest.TestCase):
         self.assertNotIn("<script>", output)
 
     def test_redact_env(self):
-        with patch.dict(os.environ, {"GITHUB_TOKEN": "secret-abcdef123"}):
-            self.assertNotIn("secret-abcdef123", redact("le jeton secret-abcdef123"))
+        token = uuid4().hex
+        with patch.dict(os.environ, {"GITHUB_TOKEN": token}):
+            self.assertEqual(redact(f"le jeton {token}"), "le jeton [SECRET_MASQUE]")
 
 
 if __name__ == "__main__":
