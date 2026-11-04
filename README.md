@@ -40,7 +40,7 @@ Le dépôt est `dkodio/revue-ia-github`. Remplacez les numéros de ticket et de 
 - `.github/pull_request_template.md` : modèle de Pull Request.
 - `scripts/collect_evidence.py`, `Dockerfile.runner`, `review/ci.py` : collecte et validation des preuves.
 - `example_app/` et `tests/test_calculator.py` : application de démonstration et trois cas de test.
-- `review/watch.py` : surveillance locale d'une PR GitHub.
+- `review/watch.py` : surveillance locale d'une PR GitHub, ordonnancée par APScheduler (sans chevauchement dans un même processus).
 - `dashboard.py` : tableau de bord local optionnel.
 - `docs/VALIDATION.md` : vérifications réalisées et limites.
 

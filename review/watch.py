@@ -1,10 +1,14 @@
-"""Surveillance facultative d'une seule association ticket/PR, par interrogation API."""
+"""Surveillance facultative d'une association ticket/PR, planifiée par APScheduler."""
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
-import time
+
+from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.schedulers.blocking import BlockingScheduler
+
 from .cli import clients
 from .config import load_env, required
 from .connectors import fetch_context
@@ -18,6 +22,70 @@ from .security import redact
 
 def fingerprint(context, model_name):
     return hashlib.sha256((model_name + context.model_dump_json()).encode()).hexdigest()
+
+
+class Watch:
+    """Un cycle de surveillance et son état, indépendants du calendrier."""
+
+    def __init__(self, args, op, git, model):
+        self.args = args
+        self.op = op
+        self.git = git
+        self.model = model
+        args.out.mkdir(parents=True, exist_ok=True)
+        key = hashlib.sha256(f"{args.repo}:{args.pr}:{args.ticket}".encode()).hexdigest()[:16]
+        self.state_path = args.out / f"watch-{key}.json"
+        self.state = json.loads(self.state_path.read_text()) if self.state_path.exists() else {}
+
+    def cycle(self):
+        """Exécuter une seule vérification ; une erreur permet un prochain essai."""
+        args = self.args
+        try:
+            standards = args.standards.read_text() if args.standards else ""
+            ctx = fetch_context(self.op, self.git, args.ticket, args.repo, args.pr, standards)
+            if args.evidence and args.evidence.exists():
+                evidence = read_evidence(args.evidence)
+                if evidence.head_sha == ctx.head_sha:
+                    ctx.evidence = evidence
+                else:
+                    ctx.warnings.append("Les preuves locales portent sur un ancien commit et sont exclues.")
+            digest = fingerprint(ctx, self.model.name)
+            if self.state.get("digest") == digest:
+                return 0
+            report = run(ctx, self.model)
+            dest = save(report, args.out)
+            print(f"Rapport créé : {dest}", flush=True)
+            if any(r.status != "complete" for r in report.results):
+                print("Analyse incomplète ; une nouvelle tentative aura lieu au prochain cycle.", flush=True)
+                return 2
+            # Enregistrer avant la publication pour ne pas multiplier les envois en cas de panne.
+            self.state = {"digest": digest, "run_id": report.run_id}
+            self.state_path.write_text(json.dumps(self.state), encoding="utf-8")
+            if args.publish:
+                publish(report, self.op, self.git, dest / "publication.json")
+                # Notre commentaire peut modifier updatedAt. Absorber seulement notre propre écriture.
+                fresh = self.op.ticket(args.ticket)
+                if fresh["subject"] == ctx.ticket_subject and (fresh.get("description", {}).get("raw") or "") == ctx.ticket_description:
+                    ctx.ticket_updated_at = fresh["updatedAt"]
+                    self.state["digest"] = fingerprint(ctx, self.model.name)
+                    self.state_path.write_text(json.dumps(self.state), encoding="utf-8")
+            return 0
+        except Exception as exc:
+            print(f"Cycle interrompu : {redact(str(exc))[:300]}. Vérifier le rapport et le journal avant une publication manuelle.", flush=True)
+            return 2
+
+
+def create_scheduler(watch, interval):
+    """Une seule tâche active par processus ; pas de rafale après une échéance manquée."""
+    if interval < 30:
+        raise ValueError("L'intervalle minimal est de 30 secondes")
+    scheduler = BlockingScheduler(timezone=timezone.utc,
+                                  executors={"default": ThreadPoolExecutor(max_workers=1)})
+    scheduler.add_job(watch.cycle, "interval", seconds=interval,
+                      id="watch", max_instances=1, coalesce=True,
+                      misfire_grace_time=interval,
+                      next_run_time=datetime.now(timezone.utc))
+    return scheduler
 
 
 def main():
@@ -37,52 +105,19 @@ def main():
     load_env()
     op, git = clients()
     model = Ollama(required("OLLAMA_URL"), required("OLLAMA_MODEL"), int(os.getenv("OLLAMA_TIMEOUT", "300")))
-    args.out.mkdir(parents=True, exist_ok=True)
-    key = hashlib.sha256(f"{args.repo}:{args.pr}:{args.ticket}".encode()).hexdigest()[:16]
-    state_path = args.out / f"watch-{key}.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    watch = Watch(args, op, git, model)
+    if args.once:
+        return watch.cycle()
+    scheduler = create_scheduler(watch, args.interval)
     try:
-        while True:
-            try:
-                standards = args.standards.read_text() if args.standards else ""
-                ctx = fetch_context(op, git, args.ticket, args.repo, args.pr, standards)
-                if args.evidence and args.evidence.exists():
-                    evidence = read_evidence(args.evidence)
-                    if evidence.head_sha == ctx.head_sha:
-                        ctx.evidence = evidence
-                    else:
-                        ctx.warnings.append("Les preuves locales portent sur un ancien commit et sont exclues.")
-                digest = fingerprint(ctx, model.name)
-                if state.get("digest") != digest:
-                    report = run(ctx, model)
-                    dest = save(report, args.out)
-                    print(f"Rapport créé : {dest}", flush=True)
-                    if all(r.status == "complete" for r in report.results):
-                        # Enregistrer avant la publication pour ne pas multiplier les envois en cas de panne.
-                        state = {"digest": digest, "run_id": report.run_id}
-                        state_path.write_text(json.dumps(state), encoding="utf-8")
-                        if args.publish:
-                            publish(report, op, git, dest / "publication.json")
-                            # Notre commentaire peut modifier updatedAt. Absorber seulement notre propre écriture.
-                            fresh = op.ticket(args.ticket)
-                            if fresh["subject"] == ctx.ticket_subject and (fresh.get("description", {}).get("raw") or "") == ctx.ticket_description:
-                                ctx.ticket_updated_at = fresh["updatedAt"]
-                                state["digest"] = fingerprint(ctx, model.name)
-                                state_path.write_text(json.dumps(state), encoding="utf-8")
-                    else:
-                        print("Analyse incomplète ; une nouvelle tentative aura lieu au prochain cycle.", flush=True)
-                        if args.once:
-                            return 2
-            except Exception as exc:
-                print(f"Cycle interrompu : {redact(str(exc))[:300]}. Vérifier le rapport et le journal avant une publication manuelle.", flush=True)
-                if args.once:
-                    return 2
-            if args.once:
-                return 0
-            time.sleep(args.interval)
+        scheduler.start()
     except KeyboardInterrupt:
         print("Surveillance arrêtée.")
-        return 0
+    finally:
+        # Laisser finir le cycle actif pour préserver rapports et journal de publication.
+        if scheduler.running:
+            scheduler.shutdown(wait=True)
+    return 0
 
 
 if __name__ == "__main__":

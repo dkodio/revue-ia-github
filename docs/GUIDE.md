@@ -293,9 +293,9 @@ python -m review.watch \
   --standards examples/STANDARDS.md --interval 60
 ```
 
-Le processus détecte les changements par interrogation des API. Laissez-le tourner et utilisez `Ctrl+C` pour l'arrêter. Les preuves d'un ancien commit sont exclues. Quand vous remplacez le fichier local par les nouvelles preuves téléchargées, une nouvelle analyse est déclenchée.
+APScheduler 3.11.3 planifie un premier cycle immédiat, puis des vérifications à intervalle fixe (60 secondes par défaut, minimum 30). Le processus détecte les changements par interrogation des API. Une seule instance du cycle peut s’exécuter dans ce processus ; une analyse longue n’est pas lancée une seconde fois en parallèle. Les échéances manquées sont regroupées (`coalesce=True`), avec une tolérance de retard égale à l’intervalle. Un retard supérieur est ignoré jusqu’à une prochaine échéance. Cette protection ne coordonne pas plusieurs processus : ne lancez qu’un surveillant pour une même association ticket/PR. Laissez-le tourner et utilisez `Ctrl+C` pour l'arrêter. Les preuves d'un ancien commit sont exclues. Quand vous remplacez le fichier local par les nouvelles preuves téléchargées, une nouvelle analyse est déclenchée.
 
-Ajoutez `--publish` si vous souhaitez autoriser la publication automatique des synthèses après les analyses terminées. Il ne s'agit toujours pas d'une approbation de PR. Une publication échouée doit être réconciliée manuellement avec son journal. Le mode `--once` réalise un seul cycle.
+Ajoutez `--publish` si vous souhaitez autoriser la publication automatique des synthèses après les analyses terminées. Il ne s'agit toujours pas d'une approbation de PR. Une publication échouée doit être réconciliée manuellement avec son journal. Le mode `--once` réalise un seul cycle sans démarrer l’ordonnanceur (code de sortie 2 en cas d’erreur ou d’analyse incomplète). Les cycles suivants retentent une analyse incomplète ; un contexte inchangé après une analyse complète n’est pas retraité. Lors de `Ctrl+C`, l’arrêt attend la fin d’un éventuel cycle actif. L’application doit rester ouverte pour assurer la surveillance.
 
 Pour afficher l'historique :
 

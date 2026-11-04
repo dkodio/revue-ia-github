@@ -2,7 +2,7 @@
 
 ## Résultats obtenus
 
-**51 tests unitaires passent**, avec Python 3.12.14 et Pydantic 2.13.5. La démonstration de la chaîne complète a également été exécutée, avec création d'un rapport Markdown, d'un JSON contenant les sept résultats et d'un historique SQLite exportable en CSV.
+**69 tests automatisés passent**, avec Python 3.12.14, Pydantic 2.14.1 et APScheduler 3.11.3 (vérification locale du 4 novembre 2026). La démonstration de la chaîne complète a également été exécutée, avec création d'un rapport Markdown, d'un JSON contenant les sept résultats et d'un historique SQLite exportable en CSV.
 
 Les tests vérifient notamment les preuves manquantes, un commit incorrect, les tests tous ignorés, une couverture insuffisante, les erreurs du modèle, les critères oubliés, les changements de PR pendant la lecture, la protection contre les redirections de jetons et la reprise d'une publication incertaine.
 
@@ -22,7 +22,7 @@ La collecte des rapports Ruff, Bandit, Gitleaks et pytest est testée avec des s
 | Services Docker Compose | Configuration fournie ; Docker absent dans l'environnement de préparation |
 | Runner Docker et analyseurs | Code fourni ; construction et exécution réelles à réaliser |
 | GitHub Actions | Syntaxe et propriétés des workflows contrôlées ; aucune exécution sur GitHub effectuée |
-| Surveillance périodique | Empreinte testée ; cycle avec services réels à réaliser |
+| Surveillance périodique APScheduler | Cycles avec services simulés et non-chevauchement avec le véritable ordonnanceur testés ; intégration avec les services réels à réaliser |
 | Tableau de bord Streamlit | Code fourni ; Streamlit non installé dans l'environnement de préparation |
 | Guide HTML | Structure, liens internes et code inclus contrôlés ; aperçu visuel non validé |
 
@@ -47,3 +47,11 @@ python -m review.cli export --out historique.csv
 ```
 
 La simulation ne se connecte à aucun service et refuse sa propre publication. Le code source livré est sous licence MIT ; les composants tiers gardent leurs propres licences.
+
+## Intégration APScheduler
+
+La boucle d’attente de `review/watch.py` est remplacée par APScheduler 3.11.3. Un premier cycle est planifié immédiatement, puis les cycles sont déclenchés toutes les 60 secondes par défaut (minimum 30). `max_instances=1` interdit le chevauchement de cette tâche dans le même processus ; `coalesce=True` regroupe les échéances manquées et la tolérance de retard est égale à l’intervalle. Le mode `--once` conserve un seul cycle sans démarrer l’ordonnanceur.
+
+Les 14 nouveaux tests couvrent notamment le contexte inchangé et l’état conservé au redémarrage, les changements de commit et de ticket, les preuves nouvelles ou périmées, les analyses incomplètes, les erreurs de collecte, la publication incertaine, la prise en compte de notre propre commentaire et le mode ponctuel. Un test exécute réellement APScheduler avec un cycle bloqué et constate que la tentative suivante est refusée tant que ce cycle reste actif. Le regroupement est contrôlé dans la configuration de la tâche.
+
+Ces résultats concernent cette modification locale : ils ne constituent pas un résultat GitHub Actions de la nouvelle version, ni une revue réelle avec Ollama et OpenProject. Les autres étapes de validation décrites plus haut restent distinctes.
