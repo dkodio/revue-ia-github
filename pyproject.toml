@@ -7,7 +7,7 @@ name = "revue-ia-github"
 version = "0.2.0"
 description = "Prototype de revue de code avec OpenProject, GitHub et sept agents locaux"
 requires-python = ">=3.11"
-dependencies = ["pydantic>=2.11,<3"]
+dependencies = ["pydantic>=2.11,<3", "APScheduler==3.11.3"]
 
 [project.scripts]
 revue-ia = "review.cli:main"

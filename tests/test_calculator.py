@@ -12,3 +12,15 @@ class CalculatorTests(unittest.TestCase):
 
     def test_negative(self):
         self.assertEqual(divide(-8, 2), -4)
+
+    def test_negative_divisor(self):
+        self.assertEqual(divide(8, -2), -4)
+
+    def test_both_operands_negative(self):
+        self.assertEqual(divide(-8, -2), 4)
+
+    def test_zero_numerator(self):
+        self.assertEqual(divide(0, 2), 0)
+
+    def test_fractional_result(self):
+        self.assertEqual(divide(5, 2), 2.5)
